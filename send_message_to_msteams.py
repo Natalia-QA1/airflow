@@ -94,7 +94,11 @@ class MessageSenderExecutor:
         if not image_url:
             logging.error("Failed to generate image.")
 
-        self.message_sender.send_message("Sent by Natalia Ananeva", quote_text, quote_author, image_url)
+        self.message_sender.send_message(
+            "Sent by Natalia Ananeva",
+            quote_text,
+            quote_author,
+            image_url)
 
 
 # Create instances
@@ -103,5 +107,9 @@ image_generator = ImageGenerator()
 message_sender = TeamsMessageSender(TEAMS_WEBHOOK_URL)
 
 # Run process
-executor = MessageSenderExecutor(quote_generator, image_generator, message_sender)
+executor = MessageSenderExecutor(
+    quote_generator,
+    image_generator,
+    message_sender
+)
 executor.run_process()
