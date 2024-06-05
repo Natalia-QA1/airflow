@@ -9,8 +9,6 @@ from requests.exceptions import ConnectionError, HTTPError
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Constants
-QUOTE_URL = "https://api.quotable.io/random"
-IMAGE_URL = "https://picsum.photos"
 WIDTH = random.randint(300, 800)
 HEIGHT = random.randint(300, 800)
 MESSAGE_COLOR = "#F8C471"
@@ -24,8 +22,10 @@ class ContentGenerator(ABC):
 
 
 class QuoteGenerator(ContentGenerator):
+    QUOTABLE_API_URL = "https://api.quotable.io/random"
+
     def get_content(self):
-        response = requests.get(QUOTE_URL)
+        response = requests.get(self.QUOTABLE_API_URL)
 
         if response.status_code != 200:
             logging.error("Failed to retrieve a quote")
@@ -40,9 +40,10 @@ class QuoteGenerator(ContentGenerator):
 
 
 class ImageGenerator(ContentGenerator):
+    PISCUM_API_URL = "https://picsum.photos"
 
     def get_content(self):
-        image_url = f"{IMAGE_URL}/{WIDTH}/{HEIGHT}"
+        image_url = f"{self.PISCUM_API_URL}/{WIDTH}/{HEIGHT}"
         return image_url
 
 
@@ -61,12 +62,8 @@ class TeamsMessageSender:
         try:
             myTeamsMessage.send()
             logging.info("Message successfully sent.")
-        except ConnectionError as e:
-            logging.error(f"Failed to send message due to connection error: {e}")
-        except HTTPError as e:
-            logging.error(f"Failed to send message due to HTTP error: {e}")
-        except TimeoutError as e:
-            logging.error(f"Failed to send message due to timeout: {e}")
+        except (ConnectionError, HTTPError, TimeoutError) as e:
+            logging.error(f"Failed to send message due to network error: {e}")
         except pymsteams.TeamsWebhookException as e:
             logging.error(f"Failed to send message due to Teams webhook error: {e}")
         except ValueError as e:
