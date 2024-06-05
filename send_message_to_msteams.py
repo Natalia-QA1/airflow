@@ -72,7 +72,6 @@ class TeamsMessageSender:
             logging.error(f"Failed to send message due to an unexpected error: {e}")
 
 
-
 class MessageSenderExecutor:
     def __init__(self, quote_generator, image_generator, message_sender):
         self.quote_generator = quote_generator
