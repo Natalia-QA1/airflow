@@ -6,13 +6,13 @@ import pymsteams
 import requests
 from requests.exceptions import ConnectionError, HTTPError
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO, 
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
-# Constants
-WIDTH = random.randint(300, 800)
-HEIGHT = random.randint(300, 800)
-MESSAGE_COLOR = "#F8C471"
 TEAMS_WEBHOOK_URL = "your_webhook"  # TODO: store credentials in a secure way
+
 
 class ContentGenerator(ABC):
     @abstractmethod
@@ -40,6 +40,8 @@ class QuoteGenerator(ContentGenerator):
 
 
 class ImageGenerator(ContentGenerator):
+    WIDTH = random.randint(300, 800)
+    HEIGHT = random.randint(300, 800)
     PISCUM_API_URL = "https://picsum.photos"
 
     def get_content(self):
@@ -48,17 +50,21 @@ class ImageGenerator(ContentGenerator):
 
 
 class TeamsMessageSender:
+    MESSAGE_COLOR = "#F8C471"
+    
     def __init__(self, webhook_url):
         self.webhook_url = webhook_url
 
     def send_message(self, title, quote_text, quote_author, image_url):
-        "Method combines the whole message and send it to MSTeams channel"
+        """Method combines the whole message and send it to MSTeams channel."""
         myTeamsMessage = pymsteams.connectorcard(self.webhook_url)
         myTeamsMessage.color(MESSAGE_COLOR)
         myTeamsMessage.title(title)
-        myTeamsMessage.text(f"**Quote:** {quote_text}\n\n" 
-                            f"**Author:** {quote_author}\n\n"
-                            f"![Image]({image_url})")
+        myTeamsMessage.text(
+            f"**Quote:** {quote_text}\n\n" 
+            f"**Author:** {quote_author}\n\n"
+            f"![Image]({image_url})"
+        )
         try:
             myTeamsMessage.send()
             logging.info("Message successfully sent.")
@@ -94,7 +100,8 @@ class MessageSenderExecutor:
             "Sent by Natalia Ananeva",
             quote_text,
             quote_author,
-            image_url)
+            image_url
+        )
 
 
 # Create instances
