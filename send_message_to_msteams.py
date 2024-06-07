@@ -55,9 +55,8 @@ class TeamsMessageSender:
     def __init__(self, webhook_url):
         self.webhook_url = webhook_url
 
-    def send_message(self, title, quote_text, quote_author, image_url, max_attempts=3, delay=5):
+    def send_message(self, title, quote_text, quote_author, image_url):
         """Method combines the whole message and send it to MSTeams channel."""
-        attempt = 0
         myTeamsMessage = pymsteams.connectorcard(self.webhook_url)
         myTeamsMessage.color(self.MESSAGE_COLOR)
         myTeamsMessage.title(title)
@@ -66,42 +65,26 @@ class TeamsMessageSender:
             f"**Author:** {quote_author}\n\n"
             f"![Image]({image_url})"
         )
-        while attempt < max_retries:
-            try:
-                myTeamsMessage.send()
-                logging.info("Message successfully sent.")
-                return
-            except (ConnectionError, HTTPError, TimeoutError) as e:
-                attempt += 1
-                logging.error(
-                    f"Failed to send message due to network error: {e}",
-                    exc_info=True
-                )
-                if attempt < max_attempts:
-                    logging.info(
-                        f"new attempt in {delay} seconds."
-                        f"Attempt {attempt + 1} of {max_attempts}."
-                    )
-                else:
-                    logging.error("Max attempts reached. Failed to send message.")
-            except pymsteams.TeamsWebhookException as e:
-                logging.error(
-                    f"Failed to send message due to Teams webhook error: {e}",
-                    exc_info=True
-                )
-                break
-            except ValueError as e:
-                logging.error(
-                    f"Failed to send message due to value error: {e}",
-                    exc_info=True
-                )
-                break
-            except Exception as e:
-                logging.error(
-                    f"Failed to send message due to an unexpected error: {e}",
-                    exc_info=True
-                )
-                raise
+
+        try:
+            myTeamsMessage.send()
+            logging.info("Message successfully sent.")
+            return
+        except (ConnectionError, HTTPError, TimeoutError) as e:
+            logging.error(
+                f"Failed to send message due to network error: {e}",
+                exc_info=True
+            )
+        except pymsteams.TeamsWebhookException as e:
+            logging.error(
+                f"Failed to send message due to Teams webhook error: {e}",
+                exc_info=True
+            )
+        except ValueError as e:
+            logging.error(
+                f"Failed to send message due to value error: {e}",
+                exc_info=True
+            )
 
 
 class MessageSenderExecutor:
