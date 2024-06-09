@@ -185,7 +185,13 @@ class RDSLoader:
         try:
             with self.conn.cursor() as cursor:
                 insert_query = sql.SQL("""
-                    INSERT INTO daily_quotes (quote, quote_author, send_dt, picture_url, image_aws_s3_key)
+                    INSERT INTO daily_quotes (
+                        quote, 
+                        quote_author, 
+                        send_dt, 
+                        picture_url, 
+                        image_aws_s3_key
+                    )
                     VALUES (%s, %s, %s, %s, %s)
                 """)
                 cursor.execute(
