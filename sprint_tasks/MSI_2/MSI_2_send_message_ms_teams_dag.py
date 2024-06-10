@@ -1,3 +1,4 @@
+import datetime
 import logging
 import random
 from abc import ABC, abstractmethod
@@ -134,7 +135,7 @@ def run_script():
 
 with DAG(
     dag_id='send_massage_msteams_dag',
-    start_date=pendulum.today(),
+    start_date=datetime.datetime(year=2024, month=6, day=10),
     schedule_interval="0 12 * * *",  # send every day at 12 a.m.
     tags=['send_message_teams'],
     description='A DAG to send message to MS Teams channel using webhook. \
