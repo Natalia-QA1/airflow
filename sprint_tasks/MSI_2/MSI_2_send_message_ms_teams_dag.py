@@ -135,8 +135,8 @@ def run_script():
 with DAG(
     dag_id='send_massage_msteams_dag',
     start_date=pendulum.today(),
-    schedule=None,
-    tags=['airflow', 'send_message_teams'],
+    schedule_interval="0 12 * * *",  # send every day at 12 a.m.
+    tags=['send_message_teams'],
     description='A DAG to send message to MS Teams channel using webhook. \
         Message consists of quote and picture. ',
     catchup=False
