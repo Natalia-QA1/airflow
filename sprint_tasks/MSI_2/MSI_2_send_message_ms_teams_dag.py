@@ -7,6 +7,7 @@ import pendulum
 import pymsteams
 import requests
 from airflow import DAG
+from airflow.models import Variable
 from airflow.operators.empty import EmptyOperator
 from airflow.operators.python import PythonOperator
 from requests.exceptions import ConnectionError, HTTPError
@@ -27,7 +28,7 @@ class ContentGenerator(ABC):
 
 
 class QuoteGeneratorFromQuotableAPI(ContentGenerator):
-    QUOTABLE_API_URL = "https://api.quotable.io/random"
+    QUOTABLE_API_URL = Variable.get("quotable_api_url")
 
     def get_content(self):
         response = requests.get(self.QUOTABLE_API_URL)
@@ -47,7 +48,7 @@ class QuoteGeneratorFromQuotableAPI(ContentGenerator):
 class ImageGeneratorFromPiscumAPI(ContentGenerator):
     WIDTH = random.randint(300, 800)
     HEIGHT = random.randint(300, 800)
-    PISCUM_API_URL = "https://picsum.photos"
+    PISCUM_API_URL = Variable.get("piscum_api_url")
 
     def get_content(self):
         image_url = f"{self.PISCUM_API_URL}/{self.WIDTH}/{self.HEIGHT}"
@@ -55,7 +56,7 @@ class ImageGeneratorFromPiscumAPI(ContentGenerator):
 
 
 class TeamsMessageSender:
-    MESSAGE_COLOR = "#F8C471"
+    MESSAGE_COLOR = "#F8C471"  # TODO: add to variables
 
     def __init__(self, webhook_url):
         self.webhook_url = webhook_url
@@ -92,51 +93,64 @@ class TeamsMessageSender:
             )
 
 
-class MessageSenderExecutor:
-    def __init__(self, quote_generator, image_generator, message_sender):
-        self.quote_generator = quote_generator
-        self.image_generator = image_generator
-        self.message_sender = message_sender
-
-    def run_process(self):
-        quote_content = self.quote_generator.get_content()
-        if not quote_content:
-            logging.error("Failed to generate quote")
-            return None
-
-        quote_text, quote_author = quote_content
-
-        image_url = self.image_generator.get_content()
-        if not image_url:
-            logging.error("Failed to generate image.")
-
-        self.message_sender.send_message(
-            "Sent by Natalia Ananeva",
-            quote_text,
-            quote_author,
-            image_url
-        )
-
-
-def run_script():
-    # Create instances
-    quote_generator = QuoteGenerator()
-    image_generator = ImageGenerator()
-    message_sender = TeamsMessageSender(TEAMS_WEBHOOK_URL)
-
-    # Run process
-    executor = MessageSenderExecutor(
-        quote_generator,
-        image_generator,
-        message_sender
+def load_quote(ti):
+    quote_generator = QuoteGeneratorFromQuotableAPI()
+    quote_content = quote_generator.get_content()
+    if not quote_content:
+        logging.error("Failed to generate quote")
+        return None, None
+    quote_text, quote_author = quote_content
+    ti.xcom_push(
+        key='quote_text', 
+        value=quote_text
     )
-    executor.run_process()
+    ti.xcom_push(
+        key='quote_author', 
+        value=quote_author
+    )
+
+
+def load_image(ti):
+    image_generator = ImageGeneratorFromPiscumAPI()
+    image_url = image_generator.get_content()
+    if not image_url:
+        logging.error("Failed to generate image.")
+    ti.xcom_push(
+        key='image_url', 
+        value=image_url
+    )
+
+
+def send_message(ti):
+    quote_text = ti.xcom_pull(
+        key='quote_text', 
+        task_ids='load_quote'
+    )
+    quote_author = ti.xcom_pull(
+        key='quote_author', 
+        task_ids='load_quote'
+    )
+    image_url = ti.xcom_pull(
+        key='image_url', 
+        task_ids='load_image'
+    )
+    if not quote_text or not quote_author or not image_url:
+        logging.error("Failed to send message due to missing content")
+        return
+
+    message_sender = TeamsMessageSender(TEAMS_WEBHOOK_URL)
+    message_sender.send_message(
+        "Sent by Natalia Ananeva",
+        quote_text,
+        quote_author,
+        image_url
+    )
 
 
 with DAG(
-    dag_id='send_massage_msteams_dag',
+    dag_id='send_massage_msteams_dag_complex_dependencies',
     start_date=datetime.datetime(
-        year=2024,
+        year=2024, 
         month=6, 
         day=10
     ),
@@ -151,13 +165,23 @@ with DAG(
         task_id='start'
     )
 
-    send_message_op = PythonOperator(
+    load_quote_op = PythonOperator(
+        task_id='load_quote',
+        python_callable=load_quote
+    )
+
+    load_image_op = PythonOperator(
+        task_id='load_image',
+        python_callable=load_image
+    )
+
+    send_message = PythonOperator(
         task_id='send_message',
-        python_callable=run_script
+        python_callable=send_message
     )
 
     finish_op = EmptyOperator(
         task_id="finish"
     )
 
-    start_op >> send_message_op >> finish_op
+    start_op >> [load_quote_op, load_image_op] >> send_message >> finish_op
