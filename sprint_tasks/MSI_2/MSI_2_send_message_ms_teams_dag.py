@@ -94,57 +94,71 @@ class TeamsMessageSender:
 
 
 def load_quote(ti):
-    quote_generator = QuoteGeneratorFromQuotableAPI()
-    quote_content = quote_generator.get_content()
-    if not quote_content:
-        logging.error("Failed to generate quote")
-        return None, None
-    quote_text, quote_author = quote_content
-    ti.xcom_push(
-        key='quote_text', 
-        value=quote_text
-    )
-    ti.xcom_push(
-        key='quote_author', 
-        value=quote_author
-    )
+    try:
+        quote_generator = QuoteGeneratorFromQuotableAPI()
+        quote_content = quote_generator.get_content()
+        if not quote_content:
+            logging.error("Failed to generate quote")
+            raise ValueError("Failed to generate quote")
+        quote_text, quote_author = quote_content
+        ti.xcom_push(
+            key='quote_text',
+            value=quote_text
+        )
+        ti.xcom_push(
+            key='quote_author',
+            value=quote_author
+        )
+    except (requests.RequestException, ValueError) as e:
+        logging.error(f"Error while loading quote: {e}")
+        raise
 
 
 def load_image(ti):
-    image_generator = ImageGeneratorFromPiscumAPI()
-    image_url = image_generator.get_content()
-    if not image_url:
-        logging.error("Failed to generate image.")
-    ti.xcom_push(
-        key='image_url', 
-        value=image_url
-    )
+    try:
+        image_generator = ImageGeneratorFromPiscumAPI()
+        image_url = image_generator.get_content()
+        if not image_url:
+            logging.error("Failed to generate image.")
+            raise ValueError("Failed to generate image.")
+        ti.xcom_push(
+            key='image_url',
+            value=image_url
+        )
+    except (requests.RequestException, ValueError) as e:
+        logging.error(f"Error while loading image: {e}")
+        raise
 
 
 def send_message(ti):
-    quote_text = ti.xcom_pull(
-        key='quote_text', 
-        task_ids='load_quote'
-    )
-    quote_author = ti.xcom_pull(
-        key='quote_author', 
-        task_ids='load_quote'
-    )
-    image_url = ti.xcom_pull(
-        key='image_url', 
-        task_ids='load_image'
-    )
-    if not quote_text or not quote_author or not image_url:
-        logging.error("Failed to send message due to missing content")
-        return
+    try:
+        quote_text = ti.xcom_pull(
+            key='quote_text',
+            task_ids='load_quote'
+        )
+        quote_author = ti.xcom_pull(
+            key='quote_author',
+            task_ids='load_quote'
+        )
+        image_url = ti.xcom_pull(
+            key='image_url',
+            task_ids='load_image'
+        )
+        if not quote_text or not quote_author or not image_url:
+            logging.error("Failed to send message due to missing content")
+            raise ValueError("Missing content for sending message.")
 
-    message_sender = TeamsMessageSender(TEAMS_WEBHOOK_URL)
-    message_sender.send_message(
-        "Sent by Natalia Ananeva",
-        quote_text,
-        quote_author,
-        image_url
-    )
+        message_sender = TeamsMessageSender(TEAMS_WEBHOOK_URL)
+        message_sender.send_message(
+            "Sent by Natalia Ananeva",
+            quote_text,
+            quote_author,
+            image_url
+        )
+
+    except (requests.RequestException, ValueError) as e:
+        logging.error(f"Error while sending message: {e}")
+        raise
 
 
 with DAG(
