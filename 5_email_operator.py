@@ -1,5 +1,5 @@
-from airflow.models import DAG
 import pendulum
+from airflow.models import DAG
 from airflow.operators.email import EmailOperator
 from airflow.operators.empty import EmptyOperator
 
