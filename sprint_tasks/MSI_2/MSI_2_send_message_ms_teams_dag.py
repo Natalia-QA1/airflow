@@ -12,10 +12,6 @@ from airflow.operators.empty import EmptyOperator
 from airflow.operators.python import PythonOperator
 from requests.exceptions import ConnectionError, HTTPError
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s"
-)
 
 TEAMS_WEBHOOK_URL = "your_webhook"  # TODO: store credentials in a secure way
 
