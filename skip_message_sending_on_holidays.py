@@ -8,13 +8,15 @@ import requests
 from airflow import DAG
 from airflow.models import Variable
 from airflow.operators.empty import EmptyOperator
-from airflow.operators.python import PythonOperator
-from requests.exceptions import ConnectionError, HTTPError
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s"
+from airflow.operators.python import (
+    PythonOperator, 
+    BranchPythonOperator
 )
+from requests.exceptions import (
+    ConnectionError, 
+    HTTPError
+)
+
 
 TEAMS_WEBHOOK_URL = "your_webhook"  # TODO: store credentials in a secure way
 
@@ -168,14 +170,15 @@ DATES_TO_SKIP = [
 ]
 
 
-def check_date(execution_date):
+def check_date(**kwargs):
     """
     Function checks whether current execution date is in the lists of
     dates which should be skipped.
-    :param execution_date: current date
-    :return: True if not; otherwise False
     """
-    return execution_date not in DATES_TO_SKIP
+    execution_date = kwargs['execution_date']
+    if execution_date in DATES_TO_SKIP:
+        return 'finish'  # Task to go to if the date is excluded
+    return ['load_quote_op', 'load_image_op']  # Task to go to if the date is not excluded
 
 
 with DAG(
@@ -197,12 +200,7 @@ with DAG(
         task_id='start'
     )
 
-    def skip_if_excluded(**kwargs):
-        execution_date = kwargs['execution_date']
-        if not check_date(execution_date):
-            raise ValueError("Date is excluded, skipping DAG run")
-
-    check_date_op = PythonOperator(
+    check_date_op = BranchPythonOperator(
         task_id='check_date',
         python_callable=skip_if_excluded,
         provide_context=True,  # is used to pass Airflow's context variables to the Python callable
