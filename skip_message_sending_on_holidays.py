@@ -3,7 +3,6 @@ import logging
 import random
 from abc import ABC, abstractmethod
 
-import pendulum
 import pymsteams
 import requests
 from airflow import DAG
@@ -162,29 +161,35 @@ def send_message(ti):
 
 
 DATES_TO_SKIP = [
-    (2024, 6, 11),
-    (2024, 6, 13),
-    (2024, 6, 15),
-    (2024, 6, 25)
+    datetime.datetime(2024, 6, 11),
+    datetime.datetime(2024, 6, 13),
+    datetime.datetime(2024, 6, 15),
+    datetime.datetime(2024, 6, 25),
 ]
 
 
-def _check_date():
-    today = dt.now().date()
-    return (today.year, today.month, today.day) in DATES_TO_SKIP
+def check_date(execution_date):
+    """
+    Function checks whether current execution date is in the lists of
+    dates which should be skipped.
+    :param execution_date: current date
+    :return: True if not; otherwise False
+    """
+    return execution_date not in DATES_TO_SKIP
 
 
 with DAG(
-    dag_id='send_massage_msteams_dag_complex_dependencies',
+    dag_id='send_massage_msteams_skip_holidays',
     start_date=datetime.datetime(
         year=2024,
         month=6,
         day=1
     ),
-    schedule_interval="0 12 * * *",  # send every day at 12 a.m.
+    schedule_interval=timedelta(days=1),
     tags=['send_message_teams'],
-    description='A DAG to send message to MS Teams channel using webhook. \
-        Message consists of quote and picture. ',
+    description="A DAG to send message to MS Teams channel using webhook. \
+                 Message consists of quote and picture. \
+                 In this version some holidays should be skipped.",
     catchup=False
 ) as dag:
 
@@ -192,9 +197,15 @@ with DAG(
         task_id='start'
     )
 
-    check_date_op = BranchPythonOperator(
-        task_id="check_date",
-        python_callable=_check_date
+    def skip_if_excluded(**kwargs):
+        execution_date = kwargs['execution_date']
+        if not check_date(execution_date):
+            raise ValueError("Date is excluded, skipping DAG run")
+
+    check_date_op = PythonOperator(
+        task_id='check_date',
+        python_callable=skip_if_excluded,
+        provide_context=True,  # is used to pass Airflow's context variables to the Python callable
     )
 
     load_quote_op = PythonOperator(
@@ -217,8 +228,6 @@ with DAG(
         trigger_rule=TriggerRule.NONE_FAILED_MIN_ONE_SUCCESS
     )
 
-
     start_op >> check_date_op
     check_date_op >> finish_op
     check_date_op >> [load_quote_op, load_image_op] >> send_message >> finish_op
-
