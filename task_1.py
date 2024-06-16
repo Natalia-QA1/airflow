@@ -9,7 +9,7 @@ def run_weekly_task():
 
 
 with DAG(
-    dag_id="weekly_scheduled_dag",
+    dag_id="practical_task_1_dag",
     description="DAG which would be triggered every week starting \
      from 15th of June and ending on  13th of July",
     start_date=pendulum.datetime(

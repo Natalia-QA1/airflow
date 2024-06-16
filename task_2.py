@@ -9,7 +9,7 @@ def run_task():
 
 
 with DAG(
-    dag_id="weekly_scheduled_dag",
+    dag_id="practical_task_2_dag",
     description="DAG which would be triggered every 2 hours \
         on weekdays from 11:00 to 19:00",
     start_date=pendulum.datetime(
