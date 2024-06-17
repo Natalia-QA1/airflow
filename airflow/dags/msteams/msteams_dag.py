@@ -1,14 +1,12 @@
-import sys
 import os
+import sys
 
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
 from datetime import datetime, timedelta
 
 from airflow import DAG
-from airflow.models import (
-    Param
-)
+from airflow.models import Param
 from airflow.operators.empty import EmptyOperator
 from airflow.operators.python import (
     PythonOperator,
@@ -27,7 +25,7 @@ from msteams_project_dag_functions import (
 
 with DAG(
         dag_id='send_massage_msteams_dag_final_version',
-        start_date=datetime(
+        start_date=pendulum.datetime(
             year=2024,
             month=6,
             day=1
