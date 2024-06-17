@@ -58,7 +58,9 @@ class TeamsMessageSender:
         self.webhook_url = webhook_url
 
     def send_message(self, title, quote_text, quote_author, image_url):
-        """Method combines the whole message and send it to MSTeams channel."""
+        """
+        Method combines the whole message and send it to MSTeams channel.
+        """
         myTeamsMessage = pymsteams.connectorcard(self.webhook_url)
         myTeamsMessage.color(self.MESSAGE_COLOR)
         myTeamsMessage.title(title)
@@ -98,11 +100,11 @@ def load_quote(ti):
             raise ValueError("Failed to generate quote")
         quote_text, quote_author = quote_content
         ti.xcom_push(
-            key='quote_text',
+            key="quote_text",
             value=quote_text
         )
         ti.xcom_push(
-            key='quote_author',
+            key="quote_author",
             value=quote_author
         )
     except (requests.RequestException, ValueError) as e:
@@ -118,7 +120,7 @@ def load_image(ti):
             logging.error("Failed to generate image.")
             raise ValueError("Failed to generate image.")
         ti.xcom_push(
-            key='image_url',
+            key="image_url",
             value=image_url
         )
     except (requests.RequestException, ValueError) as e:
@@ -129,16 +131,16 @@ def load_image(ti):
 def send_message(ti):
     try:
         quote_text = ti.xcom_pull(
-            key='quote_text',
-            task_ids='load_quote'
+            key="quote_text",
+            task_ids="load_quote"
         )
         quote_author = ti.xcom_pull(
-            key='quote_author',
-            task_ids='load_quote'
+            key="quote_author",
+            task_ids="load_quote"
         )
         image_url = ti.xcom_pull(
-            key='image_url',
-            task_ids='load_image'
+            key="image_url",
+            task_ids="load_image"
         )
         if not quote_text or not quote_author or not image_url:
             logging.error("Failed to send message due to missing content")
@@ -158,35 +160,35 @@ def send_message(ti):
 
 
 with DAG(
-    dag_id='send_massage_msteams_dag_complex_dependencies',
+    dag_id="send_massage_msteams_dag",
     start_date=datetime.datetime(
         year=2024, 
         month=6, 
         day=10
     ),
     schedule_interval="0 12 * * *",  # send every day at 12 a.m.
-    tags=['send_message_teams'],
-    description='A DAG to send message to MS Teams channel using webhook. \
-        Message consists of quote and picture. ',
+    tags=["send_message_teams"],
+    description="A DAG to send message to MS Teams channel using webhook. \
+        Message consists of quote and picture.",
     catchup=False
 ) as dag:
 
     start_op = EmptyOperator(
-        task_id='start'
+        task_id="start"
     )
 
     load_quote_op = PythonOperator(
-        task_id='load_quote',
+        task_id="load_quote",
         python_callable=load_quote
     )
 
     load_image_op = PythonOperator(
-        task_id='load_image',
+        task_id="load_image",
         python_callable=load_image
     )
 
     send_message = PythonOperator(
-        task_id='send_message',
+        task_id="send_message",
         python_callable=send_message
     )
 
