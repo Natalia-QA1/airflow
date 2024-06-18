@@ -51,7 +51,7 @@ class QuoteGeneratorFromQuotableAPI(ContentGenerator):
         if response.status_code != HTTPStatus.OK:
             raise ContentGetException(
                 f"Failed to retrieve a quote. \
-                Status code: {response.status_code}"
+                Status code: {response.status_code}."
             )
 
         data = response.json()
@@ -59,7 +59,9 @@ class QuoteGeneratorFromQuotableAPI(ContentGenerator):
         quote_author = data["author"]
 
         if not quote_text or not quote_author:
-            raise ContentGetException("Retrieved content is empty")
+            raise ContentGetException("Retrieved content is empty.")
+
+        logging.info("Quote content was successfully generated.")
         return quote_text, quote_author
 
 
@@ -72,6 +74,8 @@ class ImageGeneratorFromPiscumAPI(ContentGenerator):
         image_url = f"{self.PISCUM_API_URL}/{self.WIDTH}/{self.HEIGHT}"
         if not image_url:
             raise ContentGetException(f"Failed to retrieve an image.")
+
+        logging.info("Image content was successfully generated.")
         return image_url
 
 
@@ -87,24 +91,29 @@ class S3Loader:
     def extract_image_name(self, url):
 
         if not url:
-            raise S3LoaderEmptyValue("Extracted URL is None or empty")
+            raise S3LoaderEmptyValue("Extracted URL is None or empty.")
 
         parsed_url = urlparse(url)
         img_name = parsed_url.path.split("/")[-1]
 
         if not img_name:
-            raise S3LoaderEmptyValue("Extracted image name is None or empty")
+            raise S3LoaderEmptyValue("Extracted image name is None or empty.")
         return img_name
 
     def image_upload(self, bucket_name, image_url, timestamp):
         try:
 
-            image_data = image_url
+            response = requests.get(image_url)
+            response.raise_for_status()
+            image_data = response.content
+
             timestamp = timestamp.strftime("%Y%m%d%H%M%S")
             image_name_from_url = self.extract_image_name(image_url)
             image_name = f"{image_name_from_url}_{timestamp}.jpg"
             s3_key = f"{image_name}"
 
+            logging.info("Start loading image to s3 bucket...")
+            
             self.s3_hook.load_bytes(
                 image_data,
                 key=s3_key,
@@ -115,12 +124,12 @@ class S3Loader:
             )
 
             s3_image_url = f"{self.s3_hook.get_conn().meta.endpoint_url}/{bucket_name}/{s3_key}"
-            logging.info(f"Image successfully uploaded to S3: {s3_image_url}")
+            logging.info(f"Image successfully uploaded to S3: {s3_image_url}.")
             return s3_image_url
 
         except boto3.exceptions.Boto3Error as error:
             logging.error(
-                f"Failed to upload image to S3: {error}",
+                f"Failed to upload image to S3: {error}.",
                 exc_info=True
             )
             raise error
@@ -134,6 +143,8 @@ class RDSLoader:
 
     def check_quote_duplicates(self, quote_text, quote_author):
         try:
+            logging.info("Connecting to database...")
+            
             with self.conn.cursor() as cursor:
                 select_query = """
                     SELECT * FROM daily_quotes
@@ -156,12 +167,14 @@ class RDSLoader:
 
         except psycopg2.Error as error:
             logging.error(
-                f"Failed to perform duplicated check: {error}",
+                f"Failed to perform duplicated check: {error}.",
                 exc_info=True)
             raise error
 
     def load_quote(self, quote_text, quote_author, image_url, s3_key):
         try:
+            logging.info("Connecting to database...")
+            
             with self.conn.cursor() as cursor:
                 insert_query = sql.SQL("""
                     INSERT INTO daily_quotes (
@@ -185,7 +198,7 @@ class RDSLoader:
                 logging.info("Quote successfully saved to RDS.")
         except psycopg2.Error as error:
             logging.error(
-                f"Failed to save quote to RDS: {error}",
+                f"Failed to save quote to RDS: {error}.",
                 exc_info=True)
             raise error
 
@@ -207,6 +220,7 @@ class TeamsMessageSender:
         )
 
         try:
+            logging.info("Connecting send message...")
             myTeamsMessage.send()
             logging.info(
                 "Message successfully sent."
@@ -218,13 +232,13 @@ class TeamsMessageSender:
                 TimeoutError
         ) as error:
             logging.error(
-                f"Failed to send message due to network error: {error}",
+                f"Failed to send message due to network error: {error}.",
                 exc_info=True
             )
             raise error
         except pymsteams.TeamsWebhookException as error:
             logging.error(
-                f"Failed to send message due to Teams webhook error: {error}",
+                f"Failed to send message due to Teams webhook error: {error}.",
                 exc_info=True
             )
             raise error
