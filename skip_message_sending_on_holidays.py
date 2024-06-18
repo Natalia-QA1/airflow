@@ -203,7 +203,6 @@ with DAG(
     check_date_op = BranchPythonOperator(
         task_id='check_date',
         python_callable=skip_if_excluded,
-        provide_context=True,  # is used to pass Airflow's context variables to the Python callable
     )
 
     load_quote_op = PythonOperator(
