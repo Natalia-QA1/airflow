@@ -160,26 +160,6 @@ class RDSLoader:
             user=user,
             password=password
         )
-        self.check_table_exists()
-
-    def check_table_exists(self):
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute("""
-                                    CREATE TABLE IF NOT EXISTS daily_quotes (
-                                        id SERIAL PRIMARY KEY,
-                                        quote TEXT NOT NULL,
-                                        quote_author TEXT NOT NULL,
-                                        send_dt TIMESTAMP NOT NULL,
-                                        picture_url TEXT NOT NULL,
-                                        image_aws_s3_key TEXT NOT NULL
-                                    )
-                                """)
-                self.conn.commit()
-                logging.info("Ensured the quotes table exists.")
-
-        except Exception as e:  # TODO: think about particular exceptions
-            logging.error(f"Failed to ensure the quotes table exists: {e}")
 
     def check_quote_duplicates(self, quote_text, quote_author):
         try:
@@ -201,25 +181,23 @@ class RDSLoader:
         except Exception as e:  # TODO: think about particular exceptions
             logging.error(f"Failed to perform duplicated check: {e}")
 
-    def load_quote(self, quote_text, quote_author, send_dt, image_url, s3_key):
+    def load_quote(self, quote_text, quote_author, image_url, s3_key):
         try:
             with self.conn.cursor() as cursor:
                 insert_query = sql.SQL("""
                     INSERT INTO daily_quotes (
                         quote, 
-                        quote_author, 
-                        send_dt, 
+                        quote_author,
                         picture_url, 
                         image_aws_s3_key
                     )
-                    VALUES (%s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s)
                 """)
                 cursor.execute(
                     insert_query,
                     (
                         quote_text,
                         quote_author,
-                        send_dt,
                         image_url,
                         s3_key
                     )
@@ -239,17 +217,17 @@ class MessageSenderExecutor:
         self.rds_loader = rds_loader
 
     def run_process(self):
-        while True:
-            quote_content = self.quote_generator.get_content()
-            if not quote_content:
-                logging.error("Failed to generate quote")
-                return None
+        quote_content = self.quote_generator.get_content()
+        if not quote_content:
+            logging.error("Failed to generate quote")
+            return None
 
-            quote_text, quote_author = quote_content
+        quote_text, quote_author = quote_content
 
-            # Check for duplicate quote
-            if not self.rds_loader.check_quote_duplicates(quote_text, quote_author):
-                break
+        # Check for duplicate quote
+        if self.rds_loader.check_quote_duplicates(quote_text, quote_author):
+            return self.generate_quote()
+        return quote_content
 
         img_url = self.image_generator.get_content()
         if not img_url:
