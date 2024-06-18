@@ -1,8 +1,6 @@
-import logging
 from datetime import datetime
 
 import requests
-
 from msteams_project_code import (
     QuoteGeneratorFromQuotableAPI,
     ImageGeneratorFromPiscumAPI,
@@ -11,7 +9,7 @@ from msteams_project_code import (
     TeamsMessageSender
 )
 
-
+# TODO: store credentials in secure way
 TEAMS_WEBHOOK_URL = "your webhook"
 
 rds_loader = RDSLoader()
@@ -24,11 +22,8 @@ quote_generator = QuoteGeneratorFromQuotableAPI()
 
 
 def download_quote(ti):
-    quote_content = quote_generator.get_content()
-    if not quote_content:
-        logging.error("Failed to generate quote")
-        raise ValueError("Failed to generate quote")
 
+    quote_content = quote_generator.get_content()
     quote_text, quote_author = quote_content
 
     if rds_loader.check_quote_duplicates(quote_text, quote_author):
@@ -45,10 +40,9 @@ def download_quote(ti):
 
 
 def download_image(ti):
+
     image_url = image_generator.get_content()
-    if not image_url:
-        logging.error("Failed to generate image.")
-        raise ValueError("Failed to generate image.")
+
     ti.xcom_push(
         key="image_url",
         value=image_url
@@ -66,8 +60,7 @@ def load_into_aws_s3(params, ti, logical_date):
         image_url,
         logical_date
     )
-    if not s3_image_url:
-        raise ValueError("Failed to upload image to S3.")
+
     ti.xcom_push(
         key="s3_image_url",
         value=s3_image_url
@@ -114,11 +107,6 @@ def send_msg(params, ti):
         task_ids="download_image",
         key="image_url"
     )
-
-    # final check if sth go wrong with xcoms
-    if not quote_text or not quote_author or not image_url:
-        logging.error("Failed to send message due to missing content")
-        raise ValueError("Missing content for sending message.")
 
     message_color = params["message_color"]
 
