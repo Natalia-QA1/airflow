@@ -1,20 +1,21 @@
-from datetime import datetime
 import logging
 import random
 from abc import ABC, abstractmethod
+from datetime import datetime
+from http import HTTPStatus
 from urllib.parse import urlparse
 
 import boto3
 import psycopg2
-from psycopg2 import sql
 import pymsteams
 import requests
+from airflow.hooks.S3_hook import S3Hook
+from airflow.hooks.postgres_hook import PostgresHook
 from airflow.models import (
     Variable,
     Connection
 )
-from airflow.hooks.S3_hook import S3Hook
-from airflow.hooks.postgres_hook import PostgresHook
+from psycopg2 import sql
 from requests.exceptions import ConnectionError, HTTPError
 
 
@@ -47,18 +48,19 @@ class QuoteGeneratorFromQuotableAPI(ContentGenerator):
     def get_content(self):
         response = requests.get(self.QUOTABLE_API_URL)
 
-        if response.status_code != 200:
-            logging.error(
-                f"Failed to retrieve a quote. Status code: {response.status_code}"
+        if response.status_code != HTTPStatus.OK:
+            raise ContentGetException(
+                f"Failed to retrieve a quote. \
+                Status code: {response.status_code}"
             )
-            raise ContentGetException(f"Failed to retrieve a quote. Status code: {response.status_code}")
-        else:
-            data = response.json()
-            quote_text = data["content"]
-            quote_author = data["author"]
-            logging.info("A quote successfully generated.")
 
-            return quote_text, quote_author
+        data = response.json()
+        quote_text = data["content"]
+        quote_author = data["author"]
+
+        if not quote_text or not quote_author:
+            raise ContentGetException("Retrieved content is empty")
+        return quote_text, quote_author
 
 
 class ImageGeneratorFromPiscumAPI(ContentGenerator):
@@ -68,6 +70,8 @@ class ImageGeneratorFromPiscumAPI(ContentGenerator):
 
     def get_content(self):
         image_url = f"{self.PISCUM_API_URL}/{self.WIDTH}/{self.HEIGHT}"
+        if not image_url:
+            raise ContentGetException(f"Failed to retrieve an image.")
         return image_url
 
 
